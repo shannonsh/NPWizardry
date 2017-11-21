@@ -1,5 +1,7 @@
 import numpy as np
 import heapq
+import networkx as nx
+
 
 def mapContraints(wizards, constraints) : 
         d = dict.fromkeys(wizards, []) 
@@ -30,16 +32,17 @@ def solve(num_wiz, num_consts, wizards, consts):
     const = consts.pop(0)
     possible_arrangements = [(const[0], const[1], const[2]), (const[2], const[0], const[1]), (const[2], const[1], const[0]), (const[1], const[0], const[2])]
     for arr in possible_arrangements:
-        soltn = {}
+        soltn = nx.DiGraph()
         a, b, c = arr
-        soltn[a] = set([b, c])
-        soltn[b] = set([c])
+        soltn.add_edge(a, b)
+        soltn.add_edge(a, c)
+        soltn.add_edge(b, c)
         partial_soltns.append((-2, soltn, set(consts[1:])))
 
     # now we go into the main solver
     while len(partial_soltns) > 0:
         _, partial_soltn, remaining_consts = heapq.heappop(partial_soltns)
-        degrees = map(lambda k,v: (k, len(v)), partial_soltn.iteritems()) # TODO make faster maybe
+        degrees = nx.degree(partial_soltn)
         best_wizards = sorted(degrees, key=lambda x: x[1])
         const = []
         for wiz in best_wizards:
@@ -54,13 +57,14 @@ def solve(num_wiz, num_consts, wizards, consts):
         for arr in possible_arrangements:
             partial_soltn_ = partial_soltn.copy()
             a, b, c = arr
-            partial_soltn_[a].add(b)
-            partial_soltn_[a].add(c)
-            partial_soltn_[b].add(c)
+            partial_soltn_.add_edge(a, b)
+            partial_soltn_.add_edge(a, c)
+            partial_soltn_.add_edge(b, c)
             
             # test if our new solution breaks anything 
-            if isValid(partial_soltn_, constraints):
-                deg = max(map(lambda k,v: len(v), partial_soltn_))
+            if len(nx.simple_cycles(partial_soltn_)) == 0:    
+                deg = len(nx.degree_histogram(partial_soltn_))
                 partial_soltns.append((-deg, partial_soltn_))
+
 
 
