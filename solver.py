@@ -1,4 +1,5 @@
 import argparse
+import wizardry
 
 """
 ======================================================================
@@ -20,23 +21,8 @@ def solve(num_wizards, num_constraints, wizards, constraints):
         An array of wizard names in the ordering your algorithm returns
     """
 	
-    return []
+    return wizardry.solve(num_wizards, num_constraints, wizards, constraints)
 
-def mapContraints(wizards, constraints) : 
-	d = dict.fromkeys(wizards, [])
-	for c in constraints : 
-		for wiz in c : 
-			d[wiz].append(c)
-	return d
-
-# returns if an ordering is valid given a SINGLE constraint
-def isValid(ordering, constraint) : 
-	first = ordering.index(constraint[0])
-	second = ordering.index(constraint[1])
-	third = ordering.index(constraint[2])
-	if (third > first and third < second or third < first and third > second) : 
-		return False
-	return True
 """
 ======================================================================
    No need to change any code below this line
