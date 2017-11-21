@@ -23,9 +23,10 @@ def isValid(ordering, constraint) :
 wiz_consts = {}
 
 def solve(num_wiz, num_consts, wizards, consts):
-    global wiz_consts
-    wiz_consts = mapConstraints(wizards, consts)
-    
+    #global wiz_consts
+    #wiz_consts = mapConstraints(wizards, consts)
+    consts = list(map(tuple, consts))
+
     partial_soltns = []
 
     # construct the first partial solutions 
@@ -41,12 +42,13 @@ def solve(num_wiz, num_consts, wizards, consts):
 
     # now we go into the main solver
     while len(partial_soltns) > 0:
+        print(len(partial_soltns))
         _, partial_soltn, remaining_consts = heapq.heappop(partial_soltns)
         degrees = nx.degree(partial_soltn)
         best_wizards = sorted(degrees, key=lambda x: x[1])
         const = []
         for wiz in best_wizards:
-            wiz_consts = [const in remaining_consts if wiz in const]
+            wiz_consts = [const for const in remaining_consts if wiz in const]
             if len(wiz_consts) > 0:
                 const = wiz_consts[0]
                 break
@@ -54,6 +56,7 @@ def solve(num_wiz, num_consts, wizards, consts):
             print("we're done but I don't know what to do right now")
             break
         possible_arrangements = [(const[0], const[1], const[2]), (const[2], const[0], const[1]), (const[2], const[1], const[0]), (const[1], const[0], const[2])]
+        new_remaining_consts = [c for c in remaining_consts if c is not const]
         for arr in possible_arrangements:
             partial_soltn_ = partial_soltn.copy()
             a, b, c = arr
@@ -62,9 +65,9 @@ def solve(num_wiz, num_consts, wizards, consts):
             partial_soltn_.add_edge(b, c)
             
             # test if our new solution breaks anything 
-            if len(nx.simple_cycles(partial_soltn_)) == 0:    
+            if len(list(nx.simple_cycles(partial_soltn_))) == 0:    
                 deg = len(nx.degree_histogram(partial_soltn_))
-                partial_soltns.append((-deg, partial_soltn_))
+                partial_soltns.append((-deg, partial_soltn_, new_remaining_consts))
 
 
 
