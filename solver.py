@@ -27,7 +27,7 @@ def isValid(ordering, constraint) :
 	first = ordering.index(constraint[0])
 	second = ordering.index(constraint[1])
 	third = ordering.index(constraint[2])
-	if (third > first && third < second || third < first && third > second) : 
+	if (third > first and third < second or third < first and third > second) : 
 		return False
 	return True
 """
