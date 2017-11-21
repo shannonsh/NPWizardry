@@ -22,6 +22,13 @@ def solve(num_wizards, num_constraints, wizards, constraints):
 	
     return []
 
+def mapContraints(wizards, constraints) : 
+	d = dict.fromkeys(wizards, [])
+	for c in constraints : 
+		for wiz in c : 
+			d[wiz].append(c)
+	return d
+
 # returns if an ordering is valid given a SINGLE constraint
 def isValid(ordering, constraint) : 
 	first = ordering.index(constraint[0])
