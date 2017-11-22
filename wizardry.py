@@ -22,12 +22,18 @@ def isValid(ordering, constraint) :
 
 wiz_consts = {}
 
+def graphs_equal(g_1, g_2):
+    if set(g_1.nodes()) != set(g_2.nodes()):
+        return False
+    return all([set(g_1[x]) == set(g_2[x]) for x in g_1.nodes()])
+
 def solve(num_wiz, num_consts, wizards, consts):
     #global wiz_consts
     #wiz_consts = mapConstraints(wizards, consts)
     consts = list(map(tuple, consts))
 
     partial_soltns = []
+    seen_soltns = []
 
     # construct the first partial solutions 
     const = consts.pop(0)
@@ -42,19 +48,19 @@ def solve(num_wiz, num_consts, wizards, consts):
 
     # now we go into the main solver
     while len(partial_soltns) > 0:
-        print(len(partial_soltns))
         _, partial_soltn, remaining_consts = heapq.heappop(partial_soltns)
+        
+        seen_soltns.append(partial_soltn)
         degrees = nx.degree(partial_soltn)
-        best_wizards = sorted(degrees, key=lambda x: x[1])
+        best_wizards = sorted(degrees.iteritems(), key=lambda x: x[1], reverse=True)
         const = []
-        for wiz in best_wizards:
+        for wiz, _ in best_wizards:
             wiz_consts = [const for const in remaining_consts if wiz in const]
             if len(wiz_consts) > 0:
                 const = wiz_consts[0]
                 break
         if const is []:
-            print("we're done but I don't know what to do right now")
-            break
+            const = remaining_consts[0]
         possible_arrangements = [(const[0], const[1], const[2]), (const[2], const[0], const[1]), (const[2], const[1], const[0]), (const[1], const[0], const[2])]
         new_remaining_consts = [c for c in remaining_consts if c is not const]
         for arr in possible_arrangements:
@@ -66,8 +72,17 @@ def solve(num_wiz, num_consts, wizards, consts):
             
             # test if our new solution breaks anything 
             if len(list(nx.simple_cycles(partial_soltn_))) == 0:    
+                if len(new_remaining_consts) == 0:
+                    order = list(nx.topological_sort(partial_soltn_))
+                    if len(order) == num_wiz and all([isValid(order, c) for c in constraints]):
+                        print('super good thing we found')
+                        print(order)
+                        return order
+
                 deg = len(nx.degree_histogram(partial_soltn_))
-                partial_soltns.append((-deg, partial_soltn_, new_remaining_consts))
-
-
+                seen = any([graphs_equal(partial_soltn_, g) for g in seen_soltns])
+                if not seen:
+                    print('new thing')
+                    print(len(partial_soltns))
+                    partial_soltns.append((-deg, partial_soltn_, new_remaining_consts))
 
