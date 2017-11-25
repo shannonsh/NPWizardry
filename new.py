@@ -1,11 +1,5 @@
-import networkx as nx 
+import networkx as nx
 import heapq
-import pygtrie
-
-import pdb
-
-
-all_soltns = []
 
 def solve(num_wizards, num_constraints, wizards, constraints):
     """
@@ -54,18 +48,21 @@ def solve(num_wizards, num_constraints, wizards, constraints):
                 a, b, c = arr
                 soltn.add_edge(a, b)
                 soltn.add_edge(b, c)
-                print(list(nx.simple_cycles(soltn)))
                 # see if we violated any other constraints (seen or not seen)
                 if isAllValid(soltn, constraints) and len(list(nx.simple_cycles(soltn))) == 0 : 
                     new_soltns.append(soltn)
                 # are we done?
                 if foundCompleteOrdering(soltn, constraints) and len(list(nx.simple_cycles(soltn))) == 0 : 
-                    all_soltns = partial_soltns
-                    return list(nx.topological_sort(soltn))
-        partial_soltns += new_soltns
+                    print("FINAL SOLUTION (found without processing all constraints but validating against them)")
+                    ordering = list(nx.topological_sort(soltn))
+                    finishEverything(ordering, constraints)
+                    return ordering
+        partial_soltns = new_soltns
     if foundCompleteOrdering(partial_soltns[len(partial_soltns)-1]) : 
-        all_soltns = partial_soltns
-        return list(nx.topological_sort(partial_soltns[len(partial_soltns)-1]))
+        print("FINAL SOLUTION")
+        ordering = list(nx.topological_sort(soltn))
+        finishEverything(ordering, constraints)
+        return ordering
     print("NO SOLUTION FOUND")
     return ""
 
@@ -141,3 +138,21 @@ def sortWizByConsts(wiz_const_dict) :
 
 def copyConstraintDict(wiz_const_dict) : 
     return {key: wiz_const_dict[key].copy() for key in wiz_const_dict}
+
+
+def isOrderingValid(ordering, constraint) :
+        first = ordering.index(constraint[0])
+        second = ordering.index(constraint[1])
+        third = ordering.index(constraint[2])
+        if (third > first and third < second or third < first and third > second) :
+                return False
+        return True
+
+def satisfiedConstraints(ordering, constraints) : 
+    for const in constraints : 
+        print(const)
+        print(isOrderingValid(ordering, const))
+
+def finishEverything(ordering, constraints) : 
+    print(ordering) 
+    satisfiedConstraints(ordering, constraints)
