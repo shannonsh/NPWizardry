@@ -5,6 +5,8 @@ import pygtrie
 import pdb
 
 
+all_soltns = []
+
 def solve(num_wizards, num_constraints, wizards, constraints):
     """
     Write your algorithm here.
@@ -34,6 +36,7 @@ def solve(num_wizards, num_constraints, wizards, constraints):
 
     while len(const_set) : 
         const = findNextConst(const_set, seen, wiz_rankings)
+        print("const", const)
         const_set.remove(const)
         print("remaining consts\t" + str(len(const_set)) + "\t num partial_solutions\t" + str(len(partial_soltns)))
         for wiz in const : 
@@ -50,19 +53,19 @@ def solve(num_wizards, num_constraints, wizards, constraints):
                 soltn = partial_soltn.copy()
                 a, b, c = arr
                 soltn.add_edge(a, b)
-                soltn.add_edge(a, c)
                 soltn.add_edge(b, c)
-                # are we done?
-                if foundCompleteOrdering(soltn, constraints) : 
-                if foundCompleteOrdering(soltn, constraints) : 
-                   return list(nx.topological_sort(soltn))
-
+                print(list(nx.simple_cycles(soltn)))
                 # see if we violated any other constraints (seen or not seen)
-                if isAllValid(soltn, constraints) : 
+                if isAllValid(soltn, constraints) and len(list(nx.simple_cycles(soltn))) == 0 : 
                     new_soltns.append(soltn)
+                # are we done?
+                if foundCompleteOrdering(soltn, constraints) and len(list(nx.simple_cycles(soltn))) == 0 : 
+                    all_soltns = partial_soltns
+                    return list(nx.topological_sort(soltn))
         partial_soltns += new_soltns
-    if foundCompleteOrdering(partial_soltns[0]) : 
-        return list(nx.topological_sort(partial_soltns[0]))
+    if foundCompleteOrdering(partial_soltns[len(partial_soltns)-1]) : 
+        all_soltns = partial_soltns
+        return list(nx.topological_sort(partial_soltns[len(partial_soltns)-1]))
     print("NO SOLUTION FOUND")
     return ""
 
@@ -95,12 +98,6 @@ def findNextConst(const_set, seen, rankings) :
     if max_const == () : 
         return max_ranking_const
     return max_const
-
-def makeConstTrie(constraints) : 
-    trie = pygtrie.StringTrie()
-    for const in constraints : 
-        trie[const[0] + '/' + const[1] + '/' + const[2]] = const
-    return trie
         
 def foundCompleteOrdering(graph, constraints) : 
     return isAllValid(graph, constraints, True)
@@ -121,6 +118,15 @@ def isValid(graph, constraint, checkComplete=False) :
             return False
         return True
     return not checkComplete # False if doing full check
+
+# def isValid(graph, constraint, checkComplete=False) : 
+#     first, second, third = constraint
+#     if graph.has_node(first) and graph.has_node(second) and graph.has_node(third) : 
+#         if nx.has_path(graph, first, third) and nx.has_path(graph, third, second) or \
+#            nx.has_path(graph, second, third) and nx.has_path(graph, third, first) : 
+#             return False
+#         return True
+#     return not checkComplete # False if doing full check
     
 def mapConstraints(wizards, constraints) : 
     constraints = list(map(tuple, constraints))
@@ -135,4 +141,3 @@ def sortWizByConsts(wiz_const_dict) :
 
 def copyConstraintDict(wiz_const_dict) : 
     return {key: wiz_const_dict[key].copy() for key in wiz_const_dict}
-
