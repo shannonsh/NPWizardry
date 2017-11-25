@@ -1,5 +1,5 @@
 import argparse
-import wizardry
+import new  
 
 """
 ======================================================================
@@ -21,7 +21,7 @@ def solve(num_wizards, num_constraints, wizards, constraints):
         An array of wizard names in the ordering your algorithm returns
     """
 	
-    return wizardry.solve(num_wizards, num_constraints, wizards, constraints)
+    return new.solve(num_wizards, num_constraints, wizards, constraints)
 
 """
 ======================================================================

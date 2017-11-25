@@ -2,6 +2,7 @@ import numpy as np
 import heapq
 import networkx as nx
 
+import pdb
 
 def mapContraints(wizards, constraints) : 
         d = dict.fromkeys(wizards, []) 
@@ -35,6 +36,8 @@ def solve(num_wiz, num_consts, wizards, consts):
     partial_soltns = []
     seen_soltns = []
 
+    pdb.set_trace()
+
     # construct the first partial solutions 
     const = consts.pop(0)
     possible_arrangements = [(const[0], const[1], const[2]), (const[2], const[0], const[1]), (const[2], const[1], const[0]), (const[1], const[0], const[2])]
@@ -52,7 +55,7 @@ def solve(num_wiz, num_consts, wizards, consts):
         
         seen_soltns.append(partial_soltn)
         degrees = nx.degree(partial_soltn)
-        best_wizards = sorted(degrees.iteritems(), key=lambda x: x[1], reverse=True)
+        best_wizards = sorted(list(degrees), key=lambda x: x[1], reverse=True)
         const = []
         for wiz, _ in best_wizards:
             wiz_consts = [const for const in remaining_consts if wiz in const]
@@ -62,6 +65,7 @@ def solve(num_wiz, num_consts, wizards, consts):
         if const is []:
             const = remaining_consts[0]
         possible_arrangements = [(const[0], const[1], const[2]), (const[2], const[0], const[1]), (const[2], const[1], const[0]), (const[1], const[0], const[2])]
+		# remove current const from remaining_consts
         new_remaining_consts = [c for c in remaining_consts if c is not const]
         for arr in possible_arrangements:
             partial_soltn_ = partial_soltn.copy()
@@ -85,4 +89,4 @@ def solve(num_wiz, num_consts, wizards, consts):
                     print('new thing')
                     print(len(partial_soltns))
                     partial_soltns.append((-deg, partial_soltn_, new_remaining_consts))
-
+    print("no feasible solution found")
