@@ -38,7 +38,7 @@ def solve(num_wizards, num_constraints, wizards, constraints):
 
         new_soltns = []
         for partial_soltn in partial_soltns : 
-            partial_soltns.remove(partial_soltn)
+#             partial_soltns.remove(partial_soltn)
             possible_arrangements = [(const[0], const[1], const[2]),
                                      (const[2], const[0], const[1]), 
                                      (const[2], const[1], const[0]),
