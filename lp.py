@@ -1,8 +1,15 @@
-import networkx as nx
+from scipy.optimize import linprog
 import heapq
+import pdb
 
 leftover_partial_soltns = []
 num_wiz = 0
+# maximize x_0
+c_vec = []
+b_start = [1, -1]
+
+sorted_wiz, wiz_rankings = [], []
+
 def solve(num_wizards, num_constraints, wizards, constraints):
     """
     Write your algorithm here.
@@ -17,20 +24,26 @@ def solve(num_wizards, num_constraints, wizards, constraints):
         An array of wizard names in the ordering your algorithm returns
     """ 
     num_wiz = num_wizards
+    global c_vec
+    c_vec = list([1] + [0] * (num_wiz-1))
     wiz_const = mapConstraints(wizards, constraints)
     partial_soltns = []
     seen = set([]) # list of seen wizards
 
     # list of wizards sorted by lowest to highest degree
+    global sorted_wiz, wiz_rankings
     sorted_wiz = sortWizByConsts(wiz_const)
     wiz_rankings = {wiz: i for i, wiz in enumerate(sorted_wiz)}
 
     for i in range(4) : 
-        partial_soltns.append(nx.DiGraph())
+        # x_0 <= 1
+        row1 = [1] + [0] * (num_wiz-1)
+        # -x_0 <= -1
+        row2 = [-1] + [0] * (num_wiz-1)
+        partial_soltns.append([row1, row2])
 
     const_set = set(map(tuple, constraints))
     print("setup done, commencing solving")
-
     while len(const_set) : 
         const = findNextConst(const_set, seen, wiz_rankings)
         print("const", const)
@@ -39,9 +52,10 @@ def solve(num_wizards, num_constraints, wizards, constraints):
         for wiz in const : 
             seen.add(wiz)
 
+        if (const == ('Mario', 'Yvaine', 'Wilson')) : 
+            pdb.set_trace()
         new_soltns = []
         for partial_soltn in partial_soltns : 
-#             partial_soltns.remove(partial_soltn)
             possible_arrangements = [(const[0], const[1], const[2]),
                                      (const[2], const[0], const[1]), 
                                      (const[2], const[1], const[0]),
@@ -49,23 +63,38 @@ def solve(num_wizards, num_constraints, wizards, constraints):
             for arr in possible_arrangements:
                 soltn = partial_soltn.copy()
                 a, b, c = arr
-                soltn.add_edge(a, b)
-                soltn.add_edge(b, c)
+                # a < b => a-b < 0
+                row = [0] * num_wiz
+                row[wiz_rankings[a]] = 1
+                row[wiz_rankings[b]] = -1
+                soltn.append(row)
+                # b < c => b-c < 0
+                row = [0] * num_wiz
+                row[wiz_rankings[b]] = 1
+                row[wiz_rankings[c]] = -1
+                soltn.append(row)
+
+                # to help keep track of which people have been processed 
+                # or not:
+                # -a <= -1 => a >= 1
+                row = [0] * num_wiz
+                row[wiz_rankings[a]] = -1
+                soltn.append(row)
+
                 # see if we violated any other constraints (seen or not seen)
                 if isAllValid(soltn, constraints) : 
                     new_soltns.append(soltn)
                     # are we done?
                     if foundCompleteOrdering(soltn, constraints) : 
                         print("FINAL SOLUTION (found without processing all constraints but validating against them)")
-                        ordering = list(nx.topological_sort(soltn))
-                        finishEverything(ordering, constraints)
-                        return ordering
+                        return getOrdering(soltn) 
         partial_soltns = new_soltns
+    if (len(partial_soltns) == 0) : 
+        print("NO SOLUTION FOUND")
+        return ""
     if foundCompleteOrdering(partial_soltns[len(partial_soltns)-1], constraints) : 
         print("FINAL SOLUTION")
-        ordering = list(nx.topological_sort(soltn))
-        finishEverything(ordering, constraints)
-        return ordering
+        return getOrdering(soltn) 
     print("NO SOLUTION FOUND")
     return ""
 
@@ -99,23 +128,61 @@ def findNextConst(const_set, seen, rankings) :
         return max_ranking_const
     return max_const
         
-def foundCompleteOrdering(graph, constraints) : 
-    return satisfiedConstraints(list(nx.topological_sort(graph)), constraints)
-    # return isAllValid(graph, constraints, True)
-
-def isAllValid(graph, constraints, checkComplete=False) : 
-    if len(list(nx.simple_cycles(graph))) != 0: 
+def getOrdering(A) : 
+    # convert graph into ordering
+    b = b_start + [-1] * (len(A) - 2) # -2 for x<=1, -x<=-1
+    # interior-point is more efficient but my computer gives shitty warnings
+    res = linprog(c_vec, A_ub=A, b_ub=b, method="simplex") 
+    if (res['status'] == 0) : 
+        x = list(res['x'])
+    else : 
         return False
+    zipped = list(zip(sorted_wiz, x)) # correlates indices with wiz
+    sorted_ordering = sorted(zipped, key=lambda a: a[1])
+    # gets ordering of wizards, removing wizards that have
+    # no constraints yet (i.e. values = 0)
+    ordering = [i[0] for i in sorted_ordering if i[1] != 0]
+    return ordering
+
+def foundCompleteOrdering(graph, constraints) : 
+    return isAllValid(graph, constraints, True)
+
+def isAllValid(A, constraints, checkComplete=False) : 
+    ordering = getOrdering(A)
+    # infeasible/unbounded/unsolvable LP
+    if (ordering == False) : 
+        return ordering
     for const in constraints : 
-        if not isValid(graph, const, checkComplete) :
+        if not isOrderingValid(ordering, const, checkComplete) : 
             return False
     return True
 
-def isValid(graph, constraint, checkComplete=False) : 
-    first, second, third = constraint
-    if graph.has_node(first) and graph.has_node(second) and graph.has_node(third) : 
-        return isOrderingValid(list(nx.topological_sort(graph)), constraint)
-    return not checkComplete # False if doing full check
+def isOrderingValid(ordering, constraint, checkComplete=False) :
+        if len(ordering) < 3 : 
+            return not checkComplete
+        # print("checking", ordering, "against", constraint)
+        try : 
+            first = ordering.index(constraint[0])
+            second = ordering.index(constraint[1])
+            third = ordering.index(constraint[2])
+        except ValueError : 
+            # constraint contains wiz not in ordering
+            return not checkComplete
+        if (third > first and third < second or third < first and third > second) :
+                # print(ordering, "violates ", constraint)
+                return False
+        return True
+
+
+# def isValid(graph, constraint, checkComplete=False) : 
+#     first, second, third = constraint
+#     if graph.has_node(first) and graph.has_node(second) and graph.has_node(third) : 
+#         rows = len(graph)
+#         c = list(range(num_wiz)
+#         b = list(range(rows))
+# 
+#         return isOrderingValid(graph, constraint)
+#     return not checkComplete # False if doing full check
 
 # check if graph does not violate a SINGLE constraint
 # return True for cases where constraints mention nodes that do not exist
@@ -146,26 +213,18 @@ def copyConstraintDict(wiz_const_dict) :
     return {key: wiz_const_dict[key].copy() for key in wiz_const_dict}
 
 
-def isOrderingValid(ordering, constraint) :
-        first = ordering.index(constraint[0])
-        second = ordering.index(constraint[1])
-        third = ordering.index(constraint[2])
-        if (third > first and third < second or third < first and third > second) :
-                return False
-        return True
-
-def satisfiedConstraints(ordering, constraints) : 
-    if len(ordering) != num_wiz: 
-        return False
-    numSatisfied = 0
-    for const in constraints : 
-        # print(const)
-        if isOrderingValid(ordering, const) : 
-            numSatisfied += 1
-        # print(isOrderingValid(ordering, const))
-#     print("satisfies " + str(numSatisfied) " constraints, fails " + str(len(constraints)-numSatisfied) + " out of " + str(len(constraints)) + " constraints")
-
-    return len(constraints) - numSatisfied == 0
+# def satisfiedConstraints(ordering, constraints) : 
+#     if len(ordering) != num_wiz: 
+#         return False
+#     numSatisfied = 0
+#     for const in constraints : 
+#         # print(const)
+#         if isOrderingValid(ordering, const) : 
+#             numSatisfied += 1
+#         # print(isOrderingValid(ordering, const))
+# #     print("satisfies " + str(numSatisfied) " constraints, fails " + str(len(constraints)-numSatisfied) + " out of " + str(len(constraints)) + " constraints")
+# 
+#     return len(constraints) - numSatisfied == 0
 
 def finishEverything(ordering, constraints) : 
     print(ordering) 
