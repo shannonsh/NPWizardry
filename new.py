@@ -1,8 +1,6 @@
 import networkx as nx
 import heapq
 
-leftover_partial_soltns = []
-num_wiz = 0
 def solve(num_wizards, num_constraints, wizards, constraints):
     """
     Write your algorithm here.
@@ -16,7 +14,6 @@ def solve(num_wizards, num_constraints, wizards, constraints):
     Output:
         An array of wizard names in the ordering your algorithm returns
     """ 
-    num_wiz = num_wizards
     wiz_const = mapConstraints(wizards, constraints)
     partial_soltns = []
     seen = set([]) # list of seen wizards
@@ -52,16 +49,20 @@ def solve(num_wizards, num_constraints, wizards, constraints):
                 soltn.add_edge(a, b)
                 soltn.add_edge(b, c)
                 # see if we violated any other constraints (seen or not seen)
-                if isAllValid(soltn, constraints) : 
+                is_valid, num_wiz = validNumWiz(soltn, constraints)
+
+                if is_valid and len(list(nx.simple_cycles(soltn))) == 0 :
+                # if isAllValid(soltn, constraints) and len(list(nx.simple_cycles(soltn))) == 0 : 
                     new_soltns.append(soltn)
-                    # are we done?
-                    if foundCompleteOrdering(soltn, constraints) : 
-                        print("FINAL SOLUTION (found without processing all constraints but validating against them)")
-                        ordering = list(nx.topological_sort(soltn))
-                        finishEverything(ordering, constraints)
-                        return ordering
+                # are we done?
+                if is_valid and num_wiz == num_wizards and len(list(nx.simple_cycles(soltn))) == 0 :
+                # if foundCompleteOrdering(soltn, constraints) and len(list(nx.simple_cycles(soltn))) == 0 : 
+                    print("FINAL SOLUTION (found without processing all constraints but validating against them)")
+                    ordering = list(nx.topological_sort(soltn))
+                    finishEverything(ordering, constraints)
+                    return ordering
         partial_soltns = new_soltns
-    if foundCompleteOrdering(partial_soltns[len(partial_soltns)-1], constraints) : 
+    if foundCompleteOrdering(partial_soltns[len(partial_soltns)-1]) : 
         print("FINAL SOLUTION")
         ordering = list(nx.topological_sort(soltn))
         finishEverything(ordering, constraints)
@@ -100,27 +101,32 @@ def findNextConst(const_set, seen, rankings) :
     return max_const
         
 def foundCompleteOrdering(graph, constraints) : 
-    return satisfiedConstraints(list(nx.topological_sort(graph)), constraints)
-    # return isAllValid(graph, constraints, True)
+    return isAllValid(graph, constraints, True)
+
+def validNumWiz(graph, constraints) :
+    ret = True
+    for const in constraints :
+        if not isValid(graph, const) :
+            ret = False
+    return ret, len(graph)
 
 def isAllValid(graph, constraints, checkComplete=False) : 
-    if len(list(nx.simple_cycles(graph))) != 0: 
-        return False
     for const in constraints : 
         if not isValid(graph, const, checkComplete) :
             return False
     return True
 
+# check if graph does not violate a SINGLE constraint
+# return True for cases where constraints mention nodes that do not exist
 def isValid(graph, constraint, checkComplete=False) : 
     first, second, third = constraint
     if graph.has_node(first) and graph.has_node(second) and graph.has_node(third) : 
-        return isOrderingValid(list(nx.topological_sort(graph)), constraint)
+        if nx.has_path(graph, first, third) and nx.has_path(graph, third, second) or \
+           nx.has_path(graph, second, third) and nx.has_path(graph, third, first) : 
+            return False
+        return True
     return not checkComplete # False if doing full check
 
-# check if graph does not violate a SINGLE constraint
-# return True for cases where constraints mention nodes that do not exist
-# Checks by seeing if there is a path between 1st and 2nd wiz that goes through
-# 3rd wizard
 # def isValid(graph, constraint, checkComplete=False) : 
 #     first, second, third = constraint
 #     if graph.has_node(first) and graph.has_node(second) and graph.has_node(third) : 
@@ -129,8 +135,7 @@ def isValid(graph, constraint, checkComplete=False) :
 #             return False
 #         return True
 #     return not checkComplete # False if doing full check
-
-   
+    
 def mapConstraints(wizards, constraints) : 
     constraints = list(map(tuple, constraints))
     d = {key: set([]) for key in wizards}
@@ -155,17 +160,9 @@ def isOrderingValid(ordering, constraint) :
         return True
 
 def satisfiedConstraints(ordering, constraints) : 
-    if len(ordering) != num_wiz: 
-        return False
-    numSatisfied = 0
     for const in constraints : 
-        # print(const)
-        if isOrderingValid(ordering, const) : 
-            numSatisfied += 1
-        # print(isOrderingValid(ordering, const))
-#     print("satisfies " + str(numSatisfied) " constraints, fails " + str(len(constraints)-numSatisfied) + " out of " + str(len(constraints)) + " constraints")
-
-    return len(constraints) - numSatisfied == 0
+        print(const)
+        print(isOrderingValid(ordering, const))
 
 def finishEverything(ordering, constraints) : 
     print(ordering) 
