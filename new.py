@@ -94,7 +94,7 @@ def findNextConst(graph, const_set, rankings) :
         a, b, c = const
         if graph.has_node(a) and graph.has_node(b) : 
             try : 
-                length = nx.dag_longest_path_length(graph, a, b)
+                length = nx.shortest_path_length(graph, a, b)
             except : 
                 length = max_length
         if max_length < length : 
