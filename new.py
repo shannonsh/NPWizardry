@@ -62,7 +62,7 @@ def solve(num_wizards, num_constraints, wizards, constraints):
             is_valid, num_wiz = validNumWiz(soltn, const_set)
 
             if is_valid and len(list(nx.simple_cycles(soltn))) == 0 :
-                heapq.heappush(partial_soltns, (len(soltn), k, soltn, const_set.copy()))
+                heapq.heappush(partial_soltns, (-len(soltn), k, soltn, const_set.copy()))
                 k += 1
                 # are we done?
                 if num_wiz == num_wizards :
