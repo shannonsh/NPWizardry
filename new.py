@@ -1,5 +1,6 @@
 import networkx as nx
 import heapq
+import pdb
 
 wiz_const = {}
 def solve(num_wizards, num_constraints, wizards, constraints):
@@ -19,52 +20,57 @@ def solve(num_wizards, num_constraints, wizards, constraints):
     wiz_const = mapConstraints(wizards, constraints)
     partial_soltns = []
 
+    # counter for priority queue since it doesn't allow 
+    # identical priorities
+    k = 0
+
     # list of wizards sorted by lowest to highest degree
     sorted_wiz = sortWizByConsts(wiz_const)
     wiz_rankings = {wiz: i for i, wiz in enumerate(sorted_wiz)}
 
     const_set = set(map(tuple, constraints))
     for i in range(4) : 
-        partial_soltns.append((nx.DiGraph(), const_set.copy()))
+        heapq.heappush(partial_soltns, (0, k, nx.DiGraph(), const_set.copy()))
+        k += 1
 
     print("setup done, commencing solving")
 
     while len(partial_soltns) : 
 
-        new_soltns = []
-        for partial_soltn, const_set in partial_soltns : 
+        # for partial_soltn, const_set in partial_soltns : 
 #             partial_soltns.remove(partial_soltn)
-            const = findNextConst(partial_soltn, const_set, wiz_rankings)
-            print("seen " + str(len(partial_soltn)) + "\t num partial_solutions\t" + str(len(partial_soltns)))
-            try : 
-                const_set.remove(const)
-            except KeyError : 
-                print("BAD SHIT")
-                pass
-            possible_arrangements = [(const[0], const[1], const[2]),
-                                     (const[2], const[0], const[1]), 
-                                     (const[2], const[1], const[0]),
-                                     (const[1], const[0], const[2])]
-            for arr in possible_arrangements:
-                soltn = partial_soltn.copy()
-                a, b, c = arr
-                if not (soltn.has_node(a) and soltn.has_node(b) and nx.has_path(soltn, a, b)) : 
-                    soltn.add_edge(a, b)
-                if not (soltn.has_node(b) and soltn.has_node(c) and nx.has_path(soltn, b, c)) : 
-                    soltn.add_edge(b, c)
-                # see if we violated any other constraints (seen or not seen)
-                is_valid, num_wiz = validNumWiz(soltn, const_set)
+        num_seen, _, partial_soltn, const_set = heapq.heappop(partial_soltns)
+        const = findNextConst(partial_soltn, const_set, wiz_rankings)
+        print("seen " + str(len(partial_soltn)) + " remaining constraints " + str(len(const_set)) + "\t num partial_solutions\t" + str(len(partial_soltns)))
+        try : 
+            const_set.remove(const)
+        except KeyError : 
+            print("BAD SHIT")
+            pass
+        possible_arrangements = [(const[0], const[1], const[2]),
+                                 (const[2], const[0], const[1]), 
+                                 (const[2], const[1], const[0]),
+                                 (const[1], const[0], const[2])]
+        for arr in possible_arrangements:
+            soltn = partial_soltn.copy()
+            a, b, c = arr
+            if not (soltn.has_node(a) and soltn.has_node(b) and nx.has_path(soltn, a, b)) : 
+                soltn.add_edge(a, b)
+            if not (soltn.has_node(b) and soltn.has_node(c) and nx.has_path(soltn, b, c)) : 
+                soltn.add_edge(b, c)
+            # see if we violated any other constraints (seen or not seen)
+            is_valid, num_wiz = validNumWiz(soltn, const_set)
 
-                if is_valid and len(list(nx.simple_cycles(soltn))) == 0 :
-                    new_soltns.append((soltn, const_set.copy()))
+            if is_valid and len(list(nx.simple_cycles(soltn))) == 0 :
+                heapq.heappush(partial_soltns, (len(soltn), k, soltn, const_set.copy()))
+                k += 1
                 # are we done?
-                    if num_wiz == num_wizards :
-                        print("FINAL SOLUTION (found without processing all constraints but validating against them)")
-                        ordering = list(nx.topological_sort(soltn))
-                        finishEverything(ordering, constraints)
-                        return ordering
-        partial_soltns = new_soltns
-    if foundCompleteOrdering(partial_soltns[len(partial_soltns)-1]) : 
+                if num_wiz == num_wizards :
+                    print("FINAL SOLUTION (found without processing all constraints but validating against them)")
+                    ordering = list(nx.topological_sort(soltn))
+                    finishEverything(ordering, constraints)
+                    return ordering
+    if foundCompleteOrdering(heapq.heappop(partial_soltns)) : 
         print("FINAL SOLUTION")
         ordering = list(nx.topological_sort(soltn))
         finishEverything(ordering, constraints)
@@ -118,6 +124,8 @@ def validNumWiz(graph, constraints) :
             ret = False
         if type(validity) != type(True) : 
             toRemove.append(const)
+    for const in toRemove : 
+        constraints.remove(const)
     return ret, len(graph)
 
 def isAllValid(graph, constraints, checkComplete=False) : 
