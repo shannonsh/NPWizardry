@@ -1,6 +1,7 @@
 import networkx as nx
 import heapq
 
+wiz_const = {}
 def solve(num_wizards, num_constraints, wizards, constraints):
     """
     Write your algorithm here.
@@ -14,31 +15,32 @@ def solve(num_wizards, num_constraints, wizards, constraints):
     Output:
         An array of wizard names in the ordering your algorithm returns
     """ 
+    global wiz_const
     wiz_const = mapConstraints(wizards, constraints)
     partial_soltns = []
-    seen = set([]) # list of seen wizards
 
     # list of wizards sorted by lowest to highest degree
     sorted_wiz = sortWizByConsts(wiz_const)
     wiz_rankings = {wiz: i for i, wiz in enumerate(sorted_wiz)}
 
-    for i in range(4) : 
-        partial_soltns.append(nx.DiGraph())
-
     const_set = set(map(tuple, constraints))
+    for i in range(4) : 
+        partial_soltns.append((nx.DiGraph(), const_set.copy()))
+
     print("setup done, commencing solving")
 
-    while len(const_set) : 
-        const = findNextConst(const_set, seen, wiz_rankings)
-        print("const", const)
-        const_set.remove(const)
-        print("remaining consts\t" + str(len(const_set)) + "\t num partial_solutions\t" + str(len(partial_soltns)))
-        for wiz in const : 
-            seen.add(wiz)
+    while len(partial_soltns) : 
 
         new_soltns = []
-        for partial_soltn in partial_soltns : 
+        for partial_soltn, const_set in partial_soltns : 
 #             partial_soltns.remove(partial_soltn)
+            const = findNextConst(partial_soltn, const_set, wiz_rankings)
+            print("seen " + str(len(partial_soltn)) + "\t num partial_solutions\t" + str(len(partial_soltns)))
+            try : 
+                const_set.remove(const)
+            except KeyError : 
+                print("BAD SHIT")
+                pass
             possible_arrangements = [(const[0], const[1], const[2]),
                                      (const[2], const[0], const[1]), 
                                      (const[2], const[1], const[0]),
@@ -46,21 +48,21 @@ def solve(num_wizards, num_constraints, wizards, constraints):
             for arr in possible_arrangements:
                 soltn = partial_soltn.copy()
                 a, b, c = arr
-                soltn.add_edge(a, b)
-                soltn.add_edge(b, c)
+                if not (soltn.has_node(a) and soltn.has_node(b) and nx.has_path(soltn, a, b)) : 
+                    soltn.add_edge(a, b)
+                if not (soltn.has_node(b) and soltn.has_node(c) and nx.has_path(soltn, b, c)) : 
+                    soltn.add_edge(b, c)
                 # see if we violated any other constraints (seen or not seen)
-                is_valid, num_wiz = validNumWiz(soltn, constraints)
+                is_valid, num_wiz = validNumWiz(soltn, const_set)
 
                 if is_valid and len(list(nx.simple_cycles(soltn))) == 0 :
-                # if isAllValid(soltn, constraints) and len(list(nx.simple_cycles(soltn))) == 0 : 
-                    new_soltns.append(soltn)
+                    new_soltns.append((soltn, const_set.copy()))
                 # are we done?
-                if is_valid and num_wiz == num_wizards and len(list(nx.simple_cycles(soltn))) == 0 :
-                # if foundCompleteOrdering(soltn, constraints) and len(list(nx.simple_cycles(soltn))) == 0 : 
-                    print("FINAL SOLUTION (found without processing all constraints but validating against them)")
-                    ordering = list(nx.topological_sort(soltn))
-                    finishEverything(ordering, constraints)
-                    return ordering
+                    if num_wiz == num_wizards :
+                        print("FINAL SOLUTION (found without processing all constraints but validating against them)")
+                        ordering = list(nx.topological_sort(soltn))
+                        finishEverything(ordering, constraints)
+                        return ordering
         partial_soltns = new_soltns
     if foundCompleteOrdering(partial_soltns[len(partial_soltns)-1]) : 
         print("FINAL SOLUTION")
@@ -72,32 +74,36 @@ def solve(num_wizards, num_constraints, wizards, constraints):
 
 """
 Finds the next constraint to process as thus:
-    Choose the constraint that contains the most elements we have seen so far
-        if all else equal, pick the constraint containing wizards of highest degree
-    If none of the constraints contain any elements we've seen, return the 
-        constraints with the wizards of highest degree (combined sum)
 """
-def findNextConst(const_set, seen, rankings) : 
+def findNextConst(graph, const_set, rankings) : 
     def getRanking(const) : 
         ranking = 0
         return sum([rankings[wiz] for wiz in const]) 
 
+    if (len(graph) == 0 ) : 
+        print("popping shit")
+        return wiz_const[max(rankings, key=lambda wiz: rankings[wiz])].pop()
+
     max_const = ()
-    max_intersect = 0
+    max_length = 0
+    length = 0
+
+    max_ranking = 0
     max_ranking_const = ()
-    max_const_ranking = 0
     for const in const_set : 
-        intersect = len(seen.intersection(const))
-        const_ranking = getRanking(const)
-        if max_intersect < intersect or \
-          max_intersect == intersect and const_ranking > getRanking(max_const) : 
-            max_intersect = intersect
+        a, b, c = const
+        if graph.has_node(a) and graph.has_node(b) : 
+            try : 
+                length = nx.dag_longest_path_length(graph, a, b)
+            except : 
+                length = max_length
+        if max_length < length : 
+            max_length = length
             max_const = const
-        if max_const_ranking < const_ranking : 
-            max_const_ranking = const_ranking
+        if max_ranking < getRanking(const) : 
             max_ranking_const = const
     if max_const == () : 
-        return max_ranking_const
+        return max_ranking_const # get wiz of highest ranking by sorting ranking dict by ranking
     return max_const
         
 def foundCompleteOrdering(graph, constraints) : 
@@ -105,9 +111,13 @@ def foundCompleteOrdering(graph, constraints) :
 
 def validNumWiz(graph, constraints) :
     ret = True
+    toRemove = []
     for const in constraints :
-        if not isValid(graph, const) :
+        validity = isValid(graph, const)
+        if not validity :
             ret = False
+        if type(validity) != type(True) : 
+            toRemove.append(const)
     return ret, len(graph)
 
 def isAllValid(graph, constraints, checkComplete=False) : 
@@ -124,18 +134,10 @@ def isValid(graph, constraint, checkComplete=False) :
         if nx.has_path(graph, first, third) and nx.has_path(graph, third, second) or \
            nx.has_path(graph, second, third) and nx.has_path(graph, third, first) : 
             return False
-        return True
+        return constraint
     return not checkComplete # False if doing full check
 
-# def isValid(graph, constraint, checkComplete=False) : 
-#     first, second, third = constraint
-#     if graph.has_node(first) and graph.has_node(second) and graph.has_node(third) : 
-#         if nx.has_path(graph, first, third) and nx.has_path(graph, third, second) or \
-#            nx.has_path(graph, second, third) and nx.has_path(graph, third, first) : 
-#             return False
-#         return True
-#     return not checkComplete # False if doing full check
-    
+   
 def mapConstraints(wizards, constraints) : 
     constraints = list(map(tuple, constraints))
     d = {key: set([]) for key in wizards}
