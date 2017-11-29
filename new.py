@@ -41,7 +41,7 @@ def solve(num_wizards, num_constraints, wizards, constraints):
 #             partial_soltns.remove(partial_soltn)
         num_seen, _, partial_soltn, const_set = heapq.heappop(partial_soltns)
         const = findNextConst(partial_soltn, const_set, wiz_rankings)
-        print("seen " + str(len(partial_soltn)) + " remaining constraints " + str(len(const_set)) + "\t num partial_solutions\t" + str(len(partial_soltns)))
+        print("seen " + str(len(partial_soltn)) + "\t num partial_solutions\t" + str(len(partial_soltns)))
         try : 
             const_set.remove(const)
         except KeyError : 
@@ -124,8 +124,6 @@ def validNumWiz(graph, constraints) :
             ret = False
         if type(validity) != type(True) : 
             toRemove.append(const)
-    for const in toRemove : 
-        constraints.remove(const)
     return ret, len(graph)
 
 def isAllValid(graph, constraints, checkComplete=False) : 
