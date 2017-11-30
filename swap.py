@@ -32,7 +32,9 @@ def solve(num_wizards, num_constraints, wizards, constraints):
     best_unsat = len(unsat)
 
     temp = 1
+    # rate of decrease in randomness
     alpha = 0.999
+    accept_prob = 1 
     while num_sat < num_constraints: 
         for i in range(500) : 
             ordering = best_ordering
@@ -41,7 +43,7 @@ def solve(num_wizards, num_constraints, wizards, constraints):
                 return ordering
             const = random.choice(unsat)
 
-            # improvement: choose best among all possible places to swap
+            #  choose best among all possible places to swap
             a, b, c = const
             aIndex = ordering.index(a)
             bIndex = ordering.index(b)
@@ -54,9 +56,12 @@ def solve(num_wizards, num_constraints, wizards, constraints):
                 order1[cIndex] = ordering[spot]
                 order1[spot] = c
                 unsat1 = findUnsatisfied(order1, constraints)
-                if (len(best_swap_unsat) > len(unsat1) and tuple(order1) not in seen) : 
-                    best_swap = order1 
-                    best_swap_unsat = unsat1
+                if (len(best_swap_unsat) > len(unsat1)) : 
+                    # if ordering seen before, probability of accepting it decreases over time
+                    # reduces probability of getting stuck in a local minima
+                    if (tuple(order1) not in seen or accept_prob > random.random()) : 
+                        best_swap = order1 
+                        best_swap_unsat = unsat1
             ordering = best_swap
             unsat = best_swap_unsat
 
@@ -78,7 +83,10 @@ def solve(num_wizards, num_constraints, wizards, constraints):
             if (num_unsat < best_unsat) : 
                 print("best_unsat - num_unsat", best_unsat - num_unsat)
                 
+            # probability of exploring new solutions decreases over time
             accept_prob = math.exp((best_unsat - num_unsat)/math.sqrt(temp))
+            # if new solution better than best solution then definitely update
+            # best solution
             if accept_prob > random.random() : 
                 best_ordering = ordering[:]
                 seen.add(tuple(best_ordering))
@@ -88,28 +96,6 @@ def solve(num_wizards, num_constraints, wizards, constraints):
         temp += 1
     return best_ordering
         
-def swap(ordering, const) : 
-    a, b, c = const
-    ordering.remove(c)
-    aIndex = ordering.index(a)
-    bIndex = ordering.index(b)
-    # allNewCIndexes = [aIndex, bIndex]
-    ordering.insert(aIndex, c)
-    unsat1 = findUnsatisfied(ordering, all_constraints)
-    ordering.remove(c)
-
-    ordering.insert(bIndex, c)
-    unsat2 = findUnsatisfied(ordering, all_constraints)
-    ordering.remove(c)
-
-    if (len(unsat1) < len(unsat2)) : 
-        ordering.insert(aIndex, c)
-        return unsat1
-    else : 
-        ordering.insert(bIndex, c)
-        return unsat2
-
-
 def genSeedOrder(wizards, constraints) : 
     # random.shuffle(wizards)
     return wizards
