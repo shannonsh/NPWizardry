@@ -20,16 +20,19 @@ def solve(num_wizards, num_constraints, wizards, constraints):
     global all_constraints
     all_constraints = constraints
 
+    seen = set([])
+
     # number of unsatisfied constraints we're okay with
     ordering = genSeedOrder(wizards, constraints) 
     best_ordering = ordering
+    seen.add(tuple(best_ordering))
     num_sat = 0
     best_sat = 0
     unsat = findUnsatisfied(ordering, constraints)
     best_unsat = len(unsat)
 
     temp = 1
-    alpha = 0.99
+    alpha = 0.999
     while num_sat < num_constraints: 
         for i in range(500) : 
             ordering = best_ordering
@@ -38,22 +41,35 @@ def solve(num_wizards, num_constraints, wizards, constraints):
                 return ordering
             const = random.choice(unsat)
 
+            # improvement: choose best among all possible places to swap
             a, b, c = const
-            order1 = ordering[:]
-            order1[ordering.index(c)] = a
-            order1[ordering.index(a)] = c
-            unsat1 = findUnsatisfied(order1, constraints)
+            aIndex = ordering.index(a)
+            bIndex = ordering.index(b)
+            cIndex = ordering.index(c)
+            poss_spots = list(range(0, min(aIndex, bIndex) + 1)) + list(range(max(aIndex, bIndex), len(ordering)))
+            best_swap = ordering
+            best_swap_unsat = list(range(num_constraints))
+            for spot in poss_spots : 
+                order1 = ordering[:]
+                order1[cIndex] = ordering[spot]
+                order1[spot] = c
+                unsat1 = findUnsatisfied(order1, constraints)
+                if (len(best_swap_unsat) > len(unsat1) and tuple(order1) not in seen) : 
+                    best_swap = order1 
+                    best_swap_unsat = unsat1
+            ordering = best_swap
+            unsat = best_swap_unsat
 
-            order2 = ordering[:]
-            order2[ordering.index(c)] = b
-            order2[ordering.index(b)] = c
-            unsat2 = findUnsatisfied(order2, constraints)
-            if (len(unsat1) < len(unsat2)) : 
-                ordering = order1
-                unsat = unsat1
-            else : 
-                ordering = order2
-                unsat = unsat2
+#             order2 = ordering[:]
+#             order2[ordering.index(c)] = b
+#             order2[ordering.index(b)] = c
+#             unsat2 = findUnsatisfied(order2, constraints)
+#             if (len(unsat1) < len(unsat2)) : 
+#                 ordering = order1
+#                 unsat = unsat1
+#             else : 
+#                 ordering = order2
+#                 unsat = unsat2
 
             num_unsat = len(unsat)
             num_sat = num_constraints - len(unsat)
@@ -65,6 +81,7 @@ def solve(num_wizards, num_constraints, wizards, constraints):
             accept_prob = math.exp((best_unsat - num_unsat)/math.sqrt(temp))
             if accept_prob > random.random() : 
                 best_ordering = ordering[:]
+                seen.add(tuple(best_ordering))
                 best_sat = num_sat
                 best_unsat = len(unsat)
                 print("best ordering", best_ordering, "satisfies", best_sat)
